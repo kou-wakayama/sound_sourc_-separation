@@ -195,10 +195,13 @@ def projection_back(s_hat, W):
     c_hat = np.einsum('kmi,ikt->mikt', A, s_hat)
     return (c_hat)
 
+#file_name: wavファイル
+#spectrogram_name: スペクトログラムのファイル名
 def make_Spectrogram(file_name, spectrogram_name):
     wav = wave.open(file_name)
     data = wav.readframes(wav.getnframes())
     data = np.frombuffer(data, dtype=np.int16)
+
     fig = plt.figure(figsize=(10, 4))
     spectrum, freqs, t, im = plt.specgram(data, NFFT=512, noverlap=512 / 16 * 15, Fs=wav.getframerate(), cmap="gray")
     fig.colorbar(im).set_label('Intensity [dB]')
@@ -208,10 +211,13 @@ def make_Spectrogram(file_name, spectrogram_name):
     plt.show()
     wav.close()
 
+#file_name: wavファイル
+#spectrogram_name: スペクトログラムのファイル名
 def make_Waveform(file_name, spectrogram_name):
     wav = wave.open(file_name)
     data = wav.readframes(wav.getnframes())
     data = np.frombuffer(data, dtype=np.int16)
+
     x = np.array(range(wav.getnframes())) / wav.getframerate()
     plt.figure(figsize=(10, 4))
     plt.xlabel("Time [sec]")
@@ -222,7 +228,6 @@ def make_Waveform(file_name, spectrogram_name):
     plt.show()
     wav.close()
 
-
 # 2バイトに変換してファイルに保存
 # signal: time-domain 1d array (float)
 # file_name: 出力先のファイル名
@@ -230,28 +235,20 @@ def make_Waveform(file_name, spectrogram_name):
 def write_file_from_time_signal(signal, file_name, sample_rate):
     # 2バイトのデータに変換
     signal = signal.astype(np.int16)
-
     # waveファイルに書き込む
     wave_out = wave.open(file_name, 'w')
-
     # モノラル:1、ステレオ:2
     wave_out.setnchannels(1)
-
     # サンプルサイズ2byte
     wave_out.setsampwidth(2)
-
     # サンプリング周波数
     wave_out.setframerate(sample_rate)
-
     # データを書き込み
     wave_out.writeframes(signal)
-
     # ファイルを閉じる
     wave_out.close()
 
-
-
-
+#wavファイルの読み込み
 def file_read(sounds):
     # 長さを調べる
     n_samples = 0
@@ -278,22 +275,26 @@ def file_read(sounds):
 
     return (clean_data)
 
+
+
 # 乱数の種を初期化
 np.random.seed(0)
+# サンプリング周波数
+sample_rate = 16000
 
-RESPEAKER_RATE = 16000
+#録音の処理
 RESPEAKER_CHANNELS = 4
 RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 2
 CHUNK = 1024
-RECORD_SECONDS = 7
+RECORD_SECONDS = int(input("録音時間を入力"))
 WAVE_OUTPUT_FILENAME_1 = "output_channel-02.wav"
 WAVE_OUTPUT_FILENAME_2 = "output_channel-03.wav"
 
 p = pyaudio.PyAudio()
 
 stream = p.open(
-            rate=RESPEAKER_RATE,
+            rate=sample_rate,
             format=p.get_format_from_width(RESPEAKER_WIDTH),
             channels=RESPEAKER_CHANNELS,
             input=True,
@@ -304,7 +305,7 @@ print("* recording")
 frames_1 = []
 frames_2 = [] 
 
-for i in range(0, int(RESPEAKER_RATE / CHUNK * RECORD_SECONDS)):
+for i in range(0, int(sample_rate / CHUNK * RECORD_SECONDS)):
     data = stream.read(CHUNK)
     a = np.fromstring(data,dtype=np.int16)[0::4]
     b = np.fromstring(data,dtype=np.int16)[1::4]
@@ -323,17 +324,19 @@ p.terminate()
 wf = wave.open(WAVE_OUTPUT_FILENAME_1, 'wb')
 wf.setnchannels(1)
 wf.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
-wf.setframerate(RESPEAKER_RATE)
+wf.setframerate(sample_rate)
 wf.writeframes(b''.join(frames_1))
 wf.close()
 
 wf = wave.open(WAVE_OUTPUT_FILENAME_2, 'wb')
 wf.setnchannels(1)
 wf.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
-wf.setframerate(RESPEAKER_RATE)
+wf.setframerate(sample_rate)
 wf.writeframes(b''.join(frames_2))
 wf.close()
 
+
+#音源分離の処理
 wave_name = "output_channel"
 
 # 各マイクロホンの入力信号
@@ -344,10 +347,6 @@ clean_wave_files = ["./{}-02.wav".format(wave_name),
 n_sources = len(clean_wave_files)
 
 multi_conv_data = file_read(clean_wave_files)
-
-
-# サンプリング周波数
-sample_rate = 16000
 
 
 make_Spectrogram("./{}-02.wav".format(wave_name), "./spectrogram_{}-02".format(wave_name))
@@ -424,6 +423,3 @@ make_Waveform("./real_iva_ip_{}_1.wav".format(wave_name), "./wave_real_iva_ip_{}
 write_file_from_time_signal(y_iva_ip[1, ...] * np.iinfo(np.int16).max, "./real_iva_ip_{}_2.wav".format(wave_name), sample_rate)
 make_Spectrogram("./real_iva_ip_{}_2.wav".format(wave_name), "./spectrogram_real_iva_ip_{}_2".format(wave_name))
 make_Waveform("./real_iva_ip_{}_2.wav".format(wave_name), "./wave_real_iva_ip_{}_2".format(wave_name))
-
-
-
