@@ -212,7 +212,7 @@ def make_Spectrogram(file_name, spectrogram_name):
     wav.close()
 
 #file_name: wavファイル
-#spectrogram_name: スペクトログラムのファイル名
+#spectrogram_name: 波形のファイル名
 def make_Waveform(file_name, spectrogram_name):
     wav = wave.open(file_name)
     data = wav.readframes(wav.getnframes())
@@ -276,6 +276,32 @@ def file_read(sounds):
     return (clean_data)
 
 
+def PlayWavFie(Filename):
+    try:
+        wf = wave.open(Filename, "r")
+    except FileNotFoundError:  # ファイルが存在しなかった場合
+        print("[Error 404] No such file or directory: " + Filename)
+        return 0
+
+    # ストリームを開く
+    p = pyaudio.PyAudio()
+    stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
+                    channels=wf.getnchannels(),
+                    rate=wf.getframerate(),
+                    output=True)
+
+    # 音声を再生
+    chunk = 1024
+    data = wf.readframes(chunk)
+    while len(data) > 0:
+        stream.write(data)
+        data = wf.readframes(CHUNK)
+    stream.close()
+    print("1")
+    p.terminate()
+    print("2")
+
+
 
 # 乱数の種を初期化
 np.random.seed(0)
@@ -288,8 +314,8 @@ RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 2
 CHUNK = 1024
 RECORD_SECONDS = int(input("録音時間を入力"))
-WAVE_OUTPUT_FILENAME_1 = "output_channel-02.wav"
-WAVE_OUTPUT_FILENAME_2 = "output_channel-03.wav"
+WAVE_OUTPUT_FILENAME_1 = "rerere-02.wav"
+WAVE_OUTPUT_FILENAME_2 = "rerere-03.wav"
 
 p = pyaudio.PyAudio()
 
@@ -307,16 +333,15 @@ frames_2 = []
 
 for i in range(0, int(sample_rate / CHUNK * RECORD_SECONDS)):
     data = stream.read(CHUNK)
-    a = np.fromstring(data,dtype=np.int16)[0::4]
-    b = np.fromstring(data,dtype=np.int16)[1::4]
+    a = np.frombuffer(data,dtype=np.int16)[0::4]
+    b = np.frombuffer(data,dtype=np.int16)[1::4]
     
     frames_1.append(a.tostring())
     frames_2.append(b.tostring())
     
 
-print("* done recording")
+print("* finish")
 
-print(len(frames_1))
 stream.stop_stream()
 stream.close()
 p.terminate()
@@ -337,7 +362,7 @@ wf.close()
 
 
 #音源分離の処理
-wave_name = "output_channel"
+wave_name = "rerere"
 
 # 各マイクロホンの入力信号
 clean_wave_files = ["./{}-02.wav".format(wave_name),
@@ -364,7 +389,7 @@ freqs = np.arange(0, Nk, 1) * sample_rate / N
 f, t, stft_data = sp.stft(multi_conv_data, fs=sample_rate, window="hann", nperseg=N)
 
 # ICAの繰り返し回数
-n_ica_iterations = 50
+n_ica_iterations = 200
 
 # ICAの分離フィルタを初期化
 Wica = np.zeros(shape=(Nk, n_sources, n_sources), dtype=np.complex)
@@ -423,3 +448,15 @@ make_Waveform("./real_iva_ip_{}_1.wav".format(wave_name), "./wave_real_iva_ip_{}
 write_file_from_time_signal(y_iva_ip[1, ...] * np.iinfo(np.int16).max, "./real_iva_ip_{}_2.wav".format(wave_name), sample_rate)
 make_Spectrogram("./real_iva_ip_{}_2.wav".format(wave_name), "./spectrogram_real_iva_ip_{}_2".format(wave_name))
 make_Waveform("./real_iva_ip_{}_2.wav".format(wave_name), "./wave_real_iva_ip_{}_2".format(wave_name))
+
+
+#--------------再生-------------------
+
+verification = input("分離結果を再生しますか(y/n)")
+
+if verification != "n":
+    PlayWavFie("./real_iva_ip_{}_1.wav".format(wave_name))
+    PlayWavFie("./real_iva_ip_{}_2.wav".format(wave_name))
+
+    print("fin")
+
